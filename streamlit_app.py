@@ -1,10 +1,7 @@
 import streamlit as st
 import math
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
 from datetime import datetime
-from io import BytesIO
 
 # ─── Konfigurasi Halaman ────────────────────────────────────────────────────────
 st.set_page_config(
@@ -14,217 +11,336 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Custom CSS ─────────────────────────────────────────────────────────────────
+# ─── CSS Kustom ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {
-    --bg:        #0d1117;
-    --surface:   #161b22;
-    --border:    #30363d;
-    --accent:    #58a6ff;
-    --accent2:   #3fb950;
-    --warn:      #f78166;
-    --text:      #e6edf3;
-    --muted:     #8b949e;
-    --mono:      'IBM Plex Mono', monospace;
-    --sans:      'IBM Plex Sans', sans-serif;
+    --bg:       #0a0e17;
+    --surface:  #111827;
+    --card:     #1a2235;
+    --border:   #1f2d45;
+    --accent:   #38bdf8;
+    --green:    #34d399;
+    --warn:     #fb923c;
+    --red:      #f87171;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --mono:     'Space Mono', monospace;
+    --sans:     'DM Sans', sans-serif;
 }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, [class*="css"] {
     font-family: var(--sans);
-    background-color: var(--bg);
+    background-color: var(--bg) !important;
     color: var(--text);
 }
 
+/* ── Sidebar ── */
 section[data-testid="stSidebar"] {
-    background: var(--surface);
-    border-right: 1px solid var(--border);
+    background: var(--surface) !important;
+    border-right: 1px solid var(--border) !important;
 }
-section[data-testid="stSidebar"] .block-container { padding-top: 2rem; }
+section[data-testid="stSidebar"] > div { padding-top: 1.5rem !important; }
 
+/* ── Main container ── */
 .main .block-container {
-    padding: 2rem 3rem;
-    max-width: 1100px;
+    padding: 2rem 2.5rem !important;
+    max-width: 1200px !important;
 }
 
-.app-title {
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* ── Heading utama ── */
+.page-title {
     font-family: var(--mono);
-    font-size: 1.6rem;
-    font-weight: 600;
+    font-size: 1.45rem;
+    font-weight: 700;
     color: var(--accent);
     letter-spacing: -0.5px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0.6rem;
-    margin-bottom: 0.25rem;
+    line-height: 1.3;
 }
-.app-subtitle {
-    font-size: 0.82rem;
-    color: var(--muted);
-    margin-bottom: 2rem;
+.page-sub {
     font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    margin-bottom: 1.8rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
 }
 
-.section-header {
+/* ── Section label ── */
+.sec-label {
     font-family: var(--mono);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 2px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 2.5px;
     text-transform: uppercase;
     color: var(--muted);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0.4rem;
-    margin: 1.8rem 0 1.2rem;
+    border-left: 3px solid var(--accent);
+    padding-left: 0.6rem;
+    margin: 1.6rem 0 0.9rem;
 }
 
+/* ── Kartu hasil ── */
 .result-card {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.8rem 2rem;
-    margin: 1rem 0;
+    border-radius: 10px;
+    padding: 1.5rem 1.8rem;
+    margin: 0.8rem 0;
+    position: relative;
+    overflow: hidden;
+}
+.result-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--green));
 }
 .result-big {
     font-family: var(--mono);
-    font-size: 2.6rem;
-    font-weight: 600;
-    color: var(--accent2);
-    letter-spacing: -1px;
+    font-size: 2.8rem;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: -1.5px;
+    line-height: 1;
 }
 .result-label {
-    font-size: 0.78rem;
-    color: var(--muted);
     font-family: var(--mono);
-    letter-spacing: 1px;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 1.5px;
     text-transform: uppercase;
-    margin-top: 0.2rem;
+    margin-top: 0.4rem;
 }
 .result-sub {
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     color: var(--muted);
-    margin-top: 0.8rem;
+    margin-top: 0.6rem;
+    font-family: var(--sans);
 }
 
-.metric-row { display: flex; gap: 1rem; margin: 1rem 0; flex-wrap: wrap; }
-.metric-tile {
-    background: var(--bg);
+/* ── Tile metrik ── */
+.tile-row { display: flex; gap: 0.75rem; margin: 0.75rem 0; flex-wrap: wrap; }
+.tile {
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.8rem 1.2rem;
+    border-radius: 8px;
+    padding: 0.85rem 1.1rem;
     flex: 1;
-    min-width: 130px;
+    min-width: 120px;
+    transition: border-color 0.2s;
 }
-.metric-tile .val {
+.tile:hover { border-color: var(--accent); }
+.tile .tv {
     font-family: var(--mono);
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
     color: var(--text);
 }
-.metric-tile .lbl {
-    font-size: 0.7rem;
+.tile .tl {
+    font-size: 0.67rem;
     color: var(--muted);
     letter-spacing: 1px;
     text-transform: uppercase;
-    margin-top: 2px;
+    margin-top: 3px;
+    font-family: var(--sans);
 }
 
+/* ── Kotak formula ── */
 .formula-box {
-    background: var(--bg);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent);
-    border-radius: 0 6px 6px 0;
-    padding: 1rem 1.4rem;
+    border-radius: 0 8px 8px 0;
+    padding: 0.9rem 1.3rem;
     font-family: var(--mono);
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     color: var(--muted);
-    margin: 1rem 0;
-    line-height: 1.9;
+    margin: 0.8rem 0 1.4rem;
+    line-height: 2;
 }
-.formula-box .hi  { color: var(--accent); }
-.formula-box .hi2 { color: var(--accent2); }
+.formula-box .hl  { color: var(--accent); }
+.formula-box .hl2 { color: var(--green); }
 
-.stDataFrame { border: 1px solid var(--border) !important; border-radius: 6px; }
-
-.stButton > button {
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: 0.82rem;
-    letter-spacing: 0.5px;
-    border-radius: 5px;
-    padding: 0.45rem 1.2rem;
-    transition: all 0.15s;
-}
-.stButton > button:hover {
-    background: var(--accent);
-    color: var(--bg);
-}
-
-.stDownloadButton > button {
-    background: transparent;
-    border: 1px solid var(--accent2);
-    color: var(--accent2);
-    font-family: var(--mono);
-    font-size: 0.82rem;
-    border-radius: 5px;
-    transition: all 0.15s;
-}
-.stDownloadButton > button:hover {
-    background: var(--accent2);
-    color: var(--bg);
-}
-
-.stNumberInput input, .stSlider {
-    font-family: var(--mono);
-}
-
-.info-box {
-    background: rgba(88,166,255,0.07);
-    border: 1px solid rgba(88,166,255,0.3);
-    border-radius: 6px;
-    padding: 0.75rem 1rem;
+/* ── Info & peringatan ── */
+.box-info {
+    background: rgba(56,189,248,0.06);
+    border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
     font-size: 0.83rem;
-    color: var(--muted);
-    margin: 0.8rem 0;
+    color: #94c4d8;
+    margin: 0.7rem 0;
+    font-family: var(--sans);
+    line-height: 1.6;
 }
-.warn-box {
-    background: rgba(247,129,102,0.07);
-    border: 1px solid rgba(247,129,102,0.3);
-    border-radius: 6px;
-    padding: 0.75rem 1rem;
+.box-warn {
+    background: rgba(251,146,60,0.07);
+    border: 1px solid rgba(251,146,60,0.25);
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
     font-size: 0.83rem;
     color: var(--warn);
-    margin: 0.8rem 0;
+    margin: 0.7rem 0;
+    font-family: var(--sans);
+    line-height: 1.6;
+}
+.box-err {
+    background: rgba(248,113,113,0.07);
+    border: 1px solid rgba(248,113,113,0.25);
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    font-size: 0.83rem;
+    color: var(--red);
+    margin: 0.7rem 0;
+    font-family: var(--sans);
+    line-height: 1.6;
 }
 
+/* ── Badge status ── */
 .badge {
     display: inline-block;
-    padding: 2px 10px;
+    padding: 3px 12px;
     border-radius: 20px;
     font-family: var(--mono);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
     text-transform: uppercase;
 }
-.badge-ok  { background: rgba(63,185,80,0.15);  color: var(--accent2); border: 1px solid rgba(63,185,80,0.3); }
-.badge-mid { background: rgba(255,166,0,0.12);  color: #ffa600;        border: 1px solid rgba(255,166,0,0.3); }
-.badge-bad { background: rgba(247,129,102,0.12); color: var(--warn);   border: 1px solid rgba(247,129,102,0.3); }
+.badge-ok  { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+.badge-mid { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+.badge-bad { background: rgba(248,113,113,0.12); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
 
-div[data-testid="stVerticalBlock"] .stRadio > div { gap: 0.3rem; }
+/* ── Tombol ── */
+.stButton > button {
+    background: transparent !important;
+    border: 1px solid var(--accent) !important;
+    color: var(--accent) !important;
+    font-family: var(--mono) !important;
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
+    padding: 0.5rem 1.2rem !important;
+    transition: all 0.15s !important;
+    letter-spacing: 0.3px;
+}
+.stButton > button:hover {
+    background: var(--accent) !important;
+    color: var(--bg) !important;
+}
+
+/* ── Tombol unduh ── */
+.stDownloadButton > button {
+    background: transparent !important;
+    border: 1px solid var(--green) !important;
+    color: var(--green) !important;
+    font-family: var(--mono) !important;
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
+    transition: all 0.15s !important;
+}
+.stDownloadButton > button:hover {
+    background: var(--green) !important;
+    color: var(--bg) !important;
+}
+
+/* ── Input angka ── */
+.stNumberInput input {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    font-family: var(--mono) !important;
+    border-radius: 6px !important;
+}
+.stNumberInput input:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px rgba(56,189,248,0.15) !important;
+}
+.stTextInput input {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    border-radius: 6px !important;
+}
+
+/* ── Tabel dataframe ── */
+.stDataFrame {
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+/* ── Grafik ── */
+.stLineChart canvas, .stAreaChart canvas { border-radius: 8px; }
+
+/* ── Sidebar nav ── */
+.stRadio > label { font-family: var(--sans) !important; color: var(--muted) !important; font-size: 0.85rem !important; }
+.stRadio > div > label { padding: 0.3rem 0 !important; }
+
+/* ── Label input ── */
+.stNumberInput label, .stTextInput label, .stSlider label {
+    font-family: var(--sans) !important;
+    font-size: 0.83rem !important;
+    color: var(--muted) !important;
+    font-weight: 500 !important;
+}
+
+/* ── Expander ── */
+.stExpander { border: 1px solid var(--border) !important; border-radius: 8px !important; }
+.stExpander summary { font-family: var(--sans) !important; }
+
+/* ── Alert streamlit ── */
+.stAlert { border-radius: 8px !important; }
+
+/* ── Sidebar logo ── */
+.sidebar-brand {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.3px;
+    padding: 0 0 0.2rem;
+}
+.sidebar-tagline {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-bottom: 1.2rem;
+    letter-spacing: 0.5px;
+}
+.sidebar-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1rem 0;
+}
+.sidebar-info {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 2;
+}
+.sidebar-info b { color: var(--accent); }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ─── Fungsi Perhitungan Utama ───────────────────────────────────────────────────
-def binomial_pb(A: float, S: int, N: int):
+# ─── Fungsi Perhitungan Inti ───────────────────────────────────────────────────
+def hitung_pb(A: float, S: int, N: int):
     """
     Pb = Σ(x=N to S-1) [ (S-1)! / (x! * (S-1-x)!) ] * A^x * (1-A)^(S-1-x)
-    A = Erlangs per sumber
+    A = Erlang yang ditawarkan per sumber
     S = Jumlah sumber
-    N = Jumlah server
+    N = Jumlah server (saluran)
     """
     if N >= S:
         return 0.0
@@ -238,45 +354,46 @@ def binomial_pb(A: float, S: int, N: int):
     for x in range(N, S):
         try:
             binom = math.factorial(s1) / (math.factorial(x) * math.factorial(s1 - x))
-            term  = binom * (A ** x) * ((1 - A) ** (s1 - x))
-            total += term
+            suku  = binom * (A ** x) * ((1 - A) ** (s1 - x))
+            total += suku
         except (OverflowError, ZeroDivisionError):
             return None
     return min(total, 1.0)
 
 
-def grade_of_service(pb: float):
+def kualitas_layanan(pb: float):
     if pb <= 0.01:
         return "Sangat Baik", "badge-ok"
     elif pb <= 0.05:
-        return "Dapat Diterima", "badge-mid"
+        return "Cukup", "badge-mid"
     else:
         return "Buruk", "badge-bad"
 
 
-def _safe(text: str) -> str:
-    replacements = {
-        "\u2014": "-", "\u2013": "-", "\u2018": "'", "\u2019": "'",
-        "\u201c": '"', "\u201d": '"', "\u2026": "...", "\u00d7": "x",
-    }
-    for k, v in replacements.items():
-        text = text.replace(k, v)
-    return text.encode("latin-1", errors="replace").decode("latin-1")
-
-
-def generate_pdf(history: list) -> bytes:
+def buat_pdf(history: list) -> bytes:
     try:
         from fpdf import FPDF
+
+        def aman(teks: str) -> str:
+            pengganti = {
+                "\u2014": "-", "\u2013": "-", "\u2018": "'", "\u2019": "'",
+                "\u201c": '"', "\u201d": '"', "\u2026": "...", "\u00d7": "x",
+            }
+            for k, v in pengganti.items():
+                teks = teks.replace(k, v)
+            return teks.encode("latin-1", errors="replace").decode("latin-1")
+
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.add_page()
 
         pdf.set_font("Helvetica", "B", 16)
         pdf.set_text_color(30, 50, 80)
-        pdf.cell(0, 10, _safe("Kalkulator Trafik Binomial - Laporan Riwayat"), ln=True)
+        pdf.cell(0, 10, aman("Kalkulator Trafik Binomial - Laporan Riwayat"), ln=True)
+
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(120, 120, 120)
-        pdf.cell(0, 6, _safe(f"Dibuat: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"), ln=True)
+        pdf.cell(0, 6, aman(f"Dibuat: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}"), ln=True)
         pdf.ln(4)
 
         pdf.set_fill_color(240, 245, 255)
@@ -284,143 +401,135 @@ def generate_pdf(history: list) -> bytes:
         pdf.set_font("Helvetica", "I", 8)
         pdf.set_text_color(60, 80, 120)
         pdf.multi_cell(0, 5,
-            _safe("Rumus: Pb = JUMLAH(x=N to S-1) [ (S-1)! / (x!(S-1-x)!) ] * A^x * (1-A)^(S-1-x)\n"
-                  "Keterangan: A = Erlang/sumber, S = Sumber, N = Server, Pb = Probabilitas blokir"),
+            aman("Rumus: Pb = SIGMA(x=N s/d S-1) [ (S-1)! / (x!(S-1-x)!) ] * A^x * (1-A)^(S-1-x)\n"
+                 "Keterangan: A=Erlang/sumber, S=Sumber, N=Server, Pb=Prob. Pemblokiran"),
             border=1, fill=True)
         pdf.ln(6)
 
-        col_w = [28, 18, 18, 18, 32, 30, 42]
-        headers = ["Waktu", "A", "S", "N", "Pb (%)", "GoS", "Catatan"]
+        lebar = [28, 18, 18, 18, 32, 28, 40]
+        header = ["Waktu", "A", "S", "N", "Pb (%)", "KoL", "Catatan"]
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_fill_color(30, 50, 80)
         pdf.set_text_color(255, 255, 255)
-        for i, h in enumerate(headers):
-            pdf.cell(col_w[i], 7, _safe(h), border=1, fill=True, align="C")
+        for i, h in enumerate(header):
+            pdf.cell(lebar[i], 7, aman(h), border=1, fill=True, align="C")
         pdf.ln()
 
         pdf.set_font("Helvetica", "", 8)
-        for idx, row in enumerate(history):
-            fill = idx % 2 == 0
-            if fill:
-                pdf.set_fill_color(248, 250, 255)
-            else:
-                pdf.set_fill_color(255, 255, 255)
+        for idx, r in enumerate(history):
+            isi = idx % 2 == 0
+            pdf.set_fill_color(248, 250, 255) if isi else pdf.set_fill_color(255, 255, 255)
             pdf.set_text_color(30, 30, 30)
-            pb_pct = f"{row['Pb']*100:.4f}%"
-            gos, _ = grade_of_service(row['Pb'])
-            vals = [
-                row.get("Timestamp", "")[:16],
-                str(row['A']), str(row['S']), str(row['N']),
-                pb_pct, gos, row.get("Notes", ""),
+            pb_pct = f"{r['Pb']*100:.4f}%"
+            kol, _ = kualitas_layanan(r['Pb'])
+            baris = [
+                r.get("Waktu", "")[:16],
+                str(r['A']),
+                str(r['S']),
+                str(r['N']),
+                pb_pct,
+                kol,
+                r.get("Catatan", ""),
             ]
-            for i, v in enumerate(vals):
-                pdf.cell(col_w[i], 6, _safe(v), border=1, fill=fill,
-                         align="C" if i != 6 else "L")
+            for i, v in enumerate(baris):
+                pdf.cell(lebar[i], 6, aman(v), border=1, fill=isi, align="C" if i != 6 else "L")
             pdf.ln()
 
         pdf.ln(8)
         pdf.set_font("Helvetica", "I", 8)
         pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 5, _safe("Kalkulator Trafik Binomial — Alat Rekayasa Teletrafik"), align="C")
+        pdf.cell(0, 5, aman("Kalkulator Trafik Binomial - Alat Rekayasa Teletrafik"), align="C")
 
-        result = pdf.output()
-        if isinstance(result, (bytes, bytearray)):
-            return bytes(result)
-        return result.encode("latin-1")
+        hasil = pdf.output()
+        if isinstance(hasil, (bytes, bytearray)):
+            return bytes(hasil)
+        return hasil.encode("latin-1")
 
     except ImportError:
-        lines = [
-            "Kalkulator Trafik Binomial - Laporan Riwayat",
-            f"Dibuat: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", "",
-            "Waktu,A,S,N,Pb,Pb(%),GoS,Catatan",
-        ]
+        baris_csv = ["Waktu,A,S,N,Pb,Pb(%),KoL,Catatan"]
         for r in history:
-            gos, _ = grade_of_service(r['Pb'])
-            lines.append(
-                f"{r.get('Timestamp','')},{r['A']},{r['S']},{r['N']},"
-                f"{r['Pb']:.6f},{r['Pb']*100:.4f}%,{gos},{r.get('Notes','')}"
+            kol, _ = kualitas_layanan(r['Pb'])
+            baris_csv.append(
+                f"{r.get('Waktu','')},{r['A']},{r['S']},{r['N']},"
+                f"{r['Pb']:.6f},{r['Pb']*100:.4f}%,{kol},{r.get('Catatan','')}"
             )
-        return "\n".join(lines).encode("utf-8")
+        return "\n".join(baris_csv).encode("utf-8")
 
 
-# ─── Inisialisasi Status Sesi ───────────────────────────────────────────────────
-if "history" not in st.session_state:
-    st.session_state.history = []
-if "last_result" not in st.session_state:
-    st.session_state.last_result = None
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = "Kalkulator"
+# ─── Inisialisasi State ─────────────────────────────────────────────────────────
+if "riwayat" not in st.session_state:
+    st.session_state.riwayat = []
+if "hasil_terakhir" not in st.session_state:
+    st.session_state.hasil_terakhir = None
 
 
-# ─── Navigasi Sidebar ───────────────────────────────────────────────────────────
+# ─── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('<div class="app-title">📡 Binomial</div>', unsafe_allow_html=True)
-    st.markdown('<div class="app-subtitle">Kalkulator Teletrafik</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-brand">📡 Binomial</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-tagline">Kalkulator Teletrafik</div>', unsafe_allow_html=True)
 
-    tab_options = ["🧮  Kalkulator", "📊  Hasil", "🗂️  Riwayat"]
     tab = st.radio(
         "Navigasi",
-        tab_options,
+        ["🧮  Kalkulator", "📊  Hasil", "🗂️  Riwayat"],
         label_visibility="collapsed",
     )
-    # Ambil nama tab dari pilihan
-    active_tab = tab.split("  ", 1)[1] if "  " in tab else tab
-    st.session_state.active_tab = active_tab
+    halaman = tab.strip().split("  ", 1)[-1]
 
-    st.markdown("---")
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
     st.markdown("""
-    <div style="font-size:0.75rem; color:#8b949e; line-height:1.9; font-family:'IBM Plex Mono',monospace;">
-    <b style="color:#58a6ff;">VARIABEL</b><br>
-    <b>A</b> — Erlang / sumber<br>
+    <div class="sidebar-info">
+    <b>VARIABEL</b><br>
+    <b>A</b> — Erlang per sumber<br>
     <b>S</b> — Total sumber<br>
-    <b>N</b> — Server (sirkuit)<br>
-    <b>Pb</b> — Probabilitas blokir<br><br>
-    <b style="color:#58a6ff;">FORMULA</b><br>
-    Model sumber terbatas<br>
-    kelas Engset dengan<br>
-    asumsi percobaan ulang.
+    <b>N</b> — Jumlah server (saluran)<br>
+    <b>Pb</b> — Probabilitas pemblokiran<br>
+    <br>
+    <b>MODEL</b><br>
+    Sumber terbatas (finite source)<br>
+    Model binomial dengan asumsi<br>
+    pemanggilan ulang (retrial).
     </div>
     """, unsafe_allow_html=True)
 
-    if st.session_state.history:
-        st.markdown("---")
-        n_rec = len(st.session_state.history)
+    if st.session_state.riwayat:
+        st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
+        n = len(st.session_state.riwayat)
         st.markdown(
-            f'<div style="font-size:0.75rem;color:#8b949e;font-family:\'IBM Plex Mono\',monospace;">'
-            f'📋 {n_rec} data tersimpan</div>',
+            f'<div class="sidebar-info">📋 <b>{n}</b> catatan tersimpan</div>',
             unsafe_allow_html=True
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 1 — KALKULATOR
+# HALAMAN 1 — KALKULATOR
 # ═══════════════════════════════════════════════════════════════════════════════
-if st.session_state.active_tab == "Kalkulator":
+if halaman == "Kalkulator":
 
-    st.markdown('<div class="app-title">Kalkulator Trafik Binomial</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Kalkulator Trafik Binomial</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="app-subtitle">Probabilitas blokir sumber terbatas — Model Binomial</div>',
+        '<div class="page-sub">Probabilitas pemblokiran sumber terbatas — Model Binomial</div>',
         unsafe_allow_html=True
     )
 
     st.markdown("""
     <div class="formula-box">
-    <span class="hi">Pb</span> = Σ <sub>x=N</sub><sup>S-1</sup>
-    &nbsp; <span class="hi2">(S-1)!</span> / [x!(S-1-x)!]
-    &nbsp;·&nbsp; <span class="hi">A</span><sup>x</sup>
-    &nbsp;·&nbsp; (1-<span class="hi">A</span>)<sup>(S-1-x)</sup>
+    <span class="hl">Pb</span>
+    &nbsp;=&nbsp; Σ <sub>x=N</sub><sup>S−1</sup>
+    &nbsp; <span class="hl2">(S−1)!</span> &nbsp;/&nbsp; [x! · (S−1−x)!]
+    &nbsp;·&nbsp; <span class="hl">A</span><sup>x</sup>
+    &nbsp;·&nbsp; (1−<span class="hl">A</span>)<sup>(S−1−x)</sup>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="section-header">Parameter Masukan</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-label">Parameter Masukan</div>', unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3 = st.columns(3)
     with col1:
         A = st.number_input(
             "A — Erlang yang Ditawarkan per Sumber",
             min_value=0.001, max_value=0.999,
-            value=0.1, step=0.001, format="%.4f",
-            help="Intensitas trafik yang ditawarkan setiap sumber (0 < A < 1)"
+            value=0.100, step=0.001, format="%.4f",
+            help="Intensitas trafik yang ditawarkan oleh setiap sumber individual (0 < A < 1)"
         )
     with col2:
         S = st.number_input(
@@ -431,76 +540,83 @@ if st.session_state.active_tab == "Kalkulator":
         )
     with col3:
         N = st.number_input(
-            "N — Jumlah Server",
+            "N — Jumlah Server (Saluran)",
             min_value=1, max_value=499,
             value=3, step=1,
             help="Jumlah server yang tersedia (trunk/sirkuit)"
         )
 
+    # Validasi
     if N >= S:
         st.markdown(
-            f'<div class="warn-box">⚠ N harus lebih kecil dari S. '
-            f'Saat ini N={N} ≥ S={S}. Nilai Pb akan menjadi 0 (tidak ada pemblokiran).</div>',
+            f'<div class="box-warn">⚠ Nilai N harus lebih kecil dari S. Saat ini N={N} ≥ S={S}, sehingga Pb = 0 (tidak ada pemblokiran).</div>',
             unsafe_allow_html=True
         )
 
-    notes = st.text_input(
+    catatan = st.text_input(
         "Catatan (opsional)",
-        placeholder="contoh: Skenario A — trafik jam sibuk",
+        placeholder="cth. Skenario A — trafik jam sibuk",
         max_chars=80
     )
 
-    st.markdown('<div class="section-header">Aksi</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-label">Tindakan</div>', unsafe_allow_html=True)
 
-    col_btn1, col_btn2, _ = st.columns([1, 1, 4])
-    with col_btn1:
-        calc_btn = st.button("▶  Hitung", use_container_width=True)
-    with col_btn2:
-        clear_btn = st.button("✕  Hapus", use_container_width=True)
+    col_a, col_b, _ = st.columns([1, 1, 5])
+    with col_a:
+        hitung_btn = st.button("▶  Hitung", use_container_width=True)
+    with col_b:
+        hapus_btn = st.button("✕  Bersihkan", use_container_width=True)
 
-    if clear_btn:
-        st.session_state.last_result = None
+    if hapus_btn:
+        st.session_state.hasil_terakhir = None
         st.rerun()
 
-    if calc_btn:
+    if hitung_btn:
         with st.spinner("Menghitung..."):
-            pb = binomial_pb(float(A), int(S), int(N))
+            pb = hitung_pb(float(A), int(S), int(N))
 
         if pb is None:
             st.markdown(
-                '<div class="warn-box">⚠ Perhitungan gagal — nilai terlalu besar untuk kalkulasi faktorial. '
-                'Coba kurangi nilai S.</div>',
+                '<div class="box-err">⚠ Perhitungan gagal — nilai mungkin terlalu besar untuk kalkulasi faktorial. Coba kurangi nilai S.</div>',
                 unsafe_allow_html=True
             )
         else:
-            result = {
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            hasil = {
+                "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "A": round(float(A), 4),
                 "S": int(S),
                 "N": int(N),
                 "Pb": pb,
-                "Notes": notes,
+                "Catatan": catatan,
             }
-            st.session_state.last_result = result
-            st.session_state.history.append(result)
-            st.success(f"✓ Berhasil dihitung — total {len(st.session_state.history)} data tersimpan")
+            st.session_state.hasil_terakhir = hasil
+            st.session_state.riwayat.append(hasil)
+            st.success(f"✓ Berhasil dihitung — total {len(st.session_state.riwayat)} catatan tersimpan")
 
-    if st.session_state.last_result:
-        r = st.session_state.last_result
-        gos, badge_cls = grade_of_service(r["Pb"])
-        st.markdown('<div class="section-header">Hasil Cepat</div>', unsafe_allow_html=True)
+    # Pratinjau hasil terakhir
+    if st.session_state.hasil_terakhir:
+        r = st.session_state.hasil_terakhir
+        kol, badge = kualitas_layanan(r["Pb"])
+        st.markdown('<div class="sec-label">Hasil Cepat</div>', unsafe_allow_html=True)
+        catatan_html = f"<div class='result-sub'><i>{r['Catatan']}</i></div>" if r['Catatan'] else ""
         st.markdown(f"""
-        <div class="result-card" style="display:flex; gap:2rem; align-items:center; flex-wrap:wrap;">
-            <div>
-                <div class="result-big">{r['Pb']*100:.4f}%</div>
-                <div class="result-label">Probabilitas Blokir (Pb)</div>
-            </div>
-            <div style="flex:1;">
-                <div class="metric-row">
-                    <div class="metric-tile"><div class="val">{r['A']}</div><div class="lbl">A (Erlang/Sumber)</div></div>
-                    <div class="metric-tile"><div class="val">{r['S']}</div><div class="lbl">S (Sumber)</div></div>
-                    <div class="metric-tile"><div class="val">{r['N']}</div><div class="lbl">N (Server)</div></div>
-                    <div class="metric-tile"><div class="val"><span class="badge {badge_cls}">{gos}</span></div><div class="lbl">Kelas Layanan</div></div>
+        <div class="result-card">
+            <div style="display:flex;gap:2.5rem;align-items:flex-start;flex-wrap:wrap;">
+                <div>
+                    <div class="result-big">{r['Pb']*100:.4f}%</div>
+                    <div class="result-label">Probabilitas Pemblokiran (Pb)</div>
+                    {catatan_html}
+                </div>
+                <div style="flex:1;">
+                    <div class="tile-row">
+                        <div class="tile"><div class="tv">{r['A']}</div><div class="tl">A (Erlang/Sumber)</div></div>
+                        <div class="tile"><div class="tv">{r['S']}</div><div class="tl">S (Sumber)</div></div>
+                        <div class="tile"><div class="tv">{r['N']}</div><div class="tl">N (Server)</div></div>
+                        <div class="tile">
+                            <div class="tv"><span class="badge {badge}">{kol}</span></div>
+                            <div class="tl">Kualitas Layanan</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -508,500 +624,275 @@ if st.session_state.active_tab == "Kalkulator":
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 2 — HASIL
+# HALAMAN 2 — HASIL
 # ═══════════════════════════════════════════════════════════════════════════════
-elif st.session_state.active_tab == "Hasil":
+elif halaman == "Hasil":
 
-    st.markdown('<div class="app-title">Hasil Perhitungan</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Hasil Perhitungan</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="app-subtitle">Rincian lengkap hasil komputasi terakhir beserta grafik analisis</div>',
+        '<div class="page-sub">Rincian lengkap dari komputasi terakhir</div>',
         unsafe_allow_html=True
     )
 
-    if not st.session_state.last_result:
+    if not st.session_state.hasil_terakhir:
         st.markdown(
-            '<div class="info-box">ℹ Belum ada perhitungan. Pergi ke tab <b>Kalkulator</b> dan '
-            'jalankan perhitungan terlebih dahulu.</div>',
+            '<div class="box-info">ℹ Belum ada perhitungan. Buka tab <b>Kalkulator</b> dan jalankan perhitungan terlebih dahulu.</div>',
             unsafe_allow_html=True
         )
     else:
-        r = st.session_state.last_result
+        r = st.session_state.hasil_terakhir
         pb = r["Pb"]
-        gos, badge_cls = grade_of_service(pb)
-        total_traffic  = r['A'] * r['S']
-        offered_load   = total_traffic
-        carried_load   = total_traffic * (1 - pb)
-        blocked_traffic = total_traffic * pb
+        kol, badge = kualitas_layanan(pb)
+        trafik_total  = r['A'] * r['S']
+        beban_diterima = trafik_total * (1 - pb)
+        trafik_blokir  = trafik_total * pb
 
-        # ── Hasil Utama ──
-        st.markdown('<div class="section-header">Hasil Utama</div>', unsafe_allow_html=True)
-        notes_html = f"<div class='result-sub'><i>{r['Notes']}</i></div>" if r.get("Notes") else ""
+        # ── Hasil utama ──
+        st.markdown('<div class="sec-label">Hasil Utama</div>', unsafe_allow_html=True)
+        catatan_html = f"<div class='result-sub'><i>Catatan: {r['Catatan']}</i></div>" if r['Catatan'] else ""
         st.markdown(f"""
         <div class="result-card">
-            <div style="display:flex; align-items:flex-start; gap:2.5rem; flex-wrap:wrap;">
+            <div style="display:flex;gap:2.5rem;align-items:flex-start;flex-wrap:wrap;">
                 <div>
                     <div class="result-big">{pb*100:.6f}%</div>
-                    <div class="result-label">Probabilitas Blokir (Pb)</div>
+                    <div class="result-label">Probabilitas Pemblokiran (Pb)</div>
                     <div style="margin-top:0.6rem;">
-                        <span class="badge {badge_cls}">{gos}</span>
-                        &nbsp;<span style="font-size:0.78rem;color:#8b949e;font-family:'IBM Plex Mono',monospace;">Kelas Layanan</span>
+                        <span class="badge {badge}">{kol}</span>
+                        &nbsp;<span style="font-size:0.75rem;color:var(--muted);font-family:var(--mono);">Kualitas Layanan</span>
                     </div>
-                    <div class="result-sub">Nilai desimal: <code style="color:#58a6ff;">{pb:.8f}</code></div>
-                    <div class="result-sub">Dicatat: <code style="font-size:0.8rem;color:#8b949e;">{r['Timestamp']}</code></div>
-                    {notes_html}
+                    <div class="result-sub">Desimal: <code style="color:var(--accent);">{pb:.10f}</code></div>
+                    <div class="result-sub">Waktu: <code style="font-size:0.78rem;color:var(--muted);">{r['Waktu']}</code></div>
+                    {catatan_html}
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Parameter Masukan ──
-        st.markdown('<div class="section-header">Parameter Masukan</div>', unsafe_allow_html=True)
+        # ── Parameter masukan ──
+        st.markdown('<div class="sec-label">Parameter Masukan</div>', unsafe_allow_html=True)
         st.markdown(f"""
-        <div class="metric-row">
-            <div class="metric-tile"><div class="val">{r['A']}</div><div class="lbl">A — Erlang/Sumber</div></div>
-            <div class="metric-tile"><div class="val">{r['S']}</div><div class="lbl">S — Jumlah Sumber</div></div>
-            <div class="metric-tile"><div class="val">{r['N']}</div><div class="lbl">N — Jumlah Server</div></div>
-            <div class="metric-tile"><div class="val">{r['S'] - r['N']}</div><div class="lbl">S - N (Sumber Lebih)</div></div>
+        <div class="tile-row">
+            <div class="tile"><div class="tv">{r['A']}</div><div class="tl">A — Erlang/Sumber</div></div>
+            <div class="tile"><div class="tv">{r['S']}</div><div class="tl">S — Jumlah Sumber</div></div>
+            <div class="tile"><div class="tv">{r['N']}</div><div class="tl">N — Jumlah Server</div></div>
+            <div class="tile"><div class="tv">{r['S'] - r['N']}</div><div class="tl">S − N (Sumber Berlebih)</div></div>
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Metrik Trafik ──
-        st.markdown('<div class="section-header">Metrik Trafik Turunan</div>', unsafe_allow_html=True)
+        # ── Metrik trafik turunan ──
+        st.markdown('<div class="sec-label">Metrik Trafik Turunan</div>', unsafe_allow_html=True)
         st.markdown(f"""
-        <div class="metric-row">
-            <div class="metric-tile"><div class="val">{offered_load:.4f}</div><div class="lbl">Total Ditawarkan (Erl)</div></div>
-            <div class="metric-tile"><div class="val">{carried_load:.4f}</div><div class="lbl">Beban Dilayani (Erl)</div></div>
-            <div class="metric-tile"><div class="val">{blocked_traffic:.4f}</div><div class="lbl">Trafik Terblokir (Erl)</div></div>
-            <div class="metric-tile"><div class="val">{(1-pb)*100:.4f}%</div><div class="lbl">Tingkat Throughput</div></div>
+        <div class="tile-row">
+            <div class="tile"><div class="tv">{trafik_total:.4f}</div><div class="tl">Total Ditawarkan (Erl)</div></div>
+            <div class="tile"><div class="tv">{beban_diterima:.4f}</div><div class="tl">Beban Diterima (Erl)</div></div>
+            <div class="tile"><div class="tv">{trafik_blokir:.4f}</div><div class="tl">Trafik Terblokir (Erl)</div></div>
+            <div class="tile"><div class="tv">{(1-pb)*100:.4f}%</div><div class="tl">Tingkat Keberhasilan</div></div>
         </div>
         """, unsafe_allow_html=True)
 
-        # ══════════════════════════════════════════════
-        # GRAFIK ANALISIS
-        # ══════════════════════════════════════════════
-        st.markdown('<div class="section-header">Grafik Analisis</div>', unsafe_allow_html=True)
+        # ── GRAFIK DISTRIBUSI SUKU ──
+        st.markdown('<div class="sec-label">Grafik Distribusi Suku Penjumlahan</div>', unsafe_allow_html=True)
+        A_v, S_v, N_v = r['A'], r['S'], r['N']
+        s1 = S_v - 1
+        data_suku = []
+        for x in range(0, S_v):
+            try:
+                binom = math.factorial(s1) / (math.factorial(x) * math.factorial(s1 - x))
+                suku  = binom * (A_v ** x) * ((1 - A_v) ** (s1 - x))
+                data_suku.append({
+                    "x (Sumber Aktif)": x,
+                    "Probabilitas": round(suku, 8),
+                    "Zona": "Pemblokiran (x ≥ N)" if x >= N_v else "Normal (x < N)"
+                })
+            except Exception:
+                pass
 
-        chart_col1, chart_col2 = st.columns(2)
+        if data_suku:
+            df_suku = pd.DataFrame(data_suku)
+            # Grafik semua suku
+            df_plot = df_suku.set_index("x (Sumber Aktif)")[["Probabilitas"]]
+            st.area_chart(df_plot, height=220, use_container_width=True)
 
-        # ── Grafik 1: Donut Chart — Distribusi Trafik ──
-        with chart_col1:
-            fig_donut = go.Figure(data=[go.Pie(
-                labels=["Trafik Dilayani", "Trafik Terblokir"],
-                values=[carried_load, blocked_traffic],
-                hole=0.55,
-                marker=dict(
-                    colors=["#3fb950", "#f78166"],
-                    line=dict(color="#0d1117", width=2)
-                ),
-                textinfo="label+percent",
-                textfont=dict(family="IBM Plex Mono", size=12, color="#e6edf3"),
-                hovertemplate="<b>%{label}</b><br>%{value:.4f} Erl<br>%{percent}<extra></extra>",
-            )])
-            fig_donut.update_layout(
-                title=dict(
-                    text="Distribusi Beban Trafik",
-                    font=dict(family="IBM Plex Mono", size=14, color="#e6edf3"),
-                    x=0.5
-                ),
-                paper_bgcolor="#161b22",
-                plot_bgcolor="#161b22",
-                font=dict(color="#e6edf3"),
-                legend=dict(
-                    font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                    bgcolor="rgba(0,0,0,0)",
-                    orientation="h",
-                    yanchor="bottom", y=-0.15,
-                    xanchor="center", x=0.5
-                ),
-                margin=dict(t=50, b=40, l=20, r=20),
-                height=320,
-                annotations=[dict(
-                    text=f"<b>{(1-pb)*100:.1f}%</b><br>Throughput",
-                    x=0.5, y=0.5, font_size=13,
-                    font=dict(family="IBM Plex Mono", color="#e6edf3"),
-                    showarrow=False
-                )]
-            )
-            st.plotly_chart(fig_donut, use_container_width=True, config={"displayModeBar": False})
+            # Grafik kontribusi kumulatif zona blokir
+            st.markdown('<div class="sec-label">Kontribusi Zona Pemblokiran (x ≥ N)</div>', unsafe_allow_html=True)
+            df_blok = df_suku[df_suku["x (Sumber Aktif)"] >= N_v].copy()
+            if not df_blok.empty:
+                df_blok["Kumulatif Pb"] = df_blok["Probabilitas"].cumsum()
+                df_blok2 = df_blok.set_index("x (Sumber Aktif)")[["Probabilitas", "Kumulatif Pb"]]
+                st.line_chart(df_blok2, height=200, use_container_width=True)
+                st.markdown(
+                    f'<div class="box-info">Zona pemblokiran mencakup <b>{len(df_blok)}</b> suku '
+                    f'(x = {N_v} hingga {S_v-1}). Total Pb = <b>{pb*100:.4f}%</b></div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    '<div class="box-info">Tidak ada suku dalam zona pemblokiran (N ≥ S).</div>',
+                    unsafe_allow_html=True
+                )
 
-        # ── Grafik 2: Bar Chart — Pb vs N (Sensitivitas Server) ──
-        with chart_col2:
-            n_vals = list(range(max(1, r['N'] - 4), min(r['S'], r['N'] + 6)))
-            pb_vals = []
-            for nv in n_vals:
-                pv = binomial_pb(r['A'], r['S'], nv)
-                pb_vals.append((pv * 100) if pv is not None else None)
-
-            bar_colors = [
-                "#58a6ff" if nv == r['N'] else "#30363d"
-                for nv in n_vals
-            ]
-
-            fig_bar = go.Figure(data=[go.Bar(
-                x=[str(nv) for nv in n_vals],
-                y=pb_vals,
-                marker=dict(color=bar_colors, line=dict(color="#0d1117", width=1)),
-                hovertemplate="<b>N = %{x}</b><br>Pb = %{y:.4f}%<extra></extra>",
-                text=[f"{v:.3f}%" if v is not None else "N/A" for v in pb_vals],
-                textposition="outside",
-                textfont=dict(family="IBM Plex Mono", size=10, color="#8b949e"),
-            )])
-            fig_bar.update_layout(
-                title=dict(
-                    text="Sensitivitas Pb terhadap Jumlah Server (N)",
-                    font=dict(family="IBM Plex Mono", size=14, color="#e6edf3"),
-                    x=0.5
-                ),
-                xaxis=dict(
-                    title="Jumlah Server (N)",
-                    title_font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                    tickfont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                    gridcolor="#21262d", linecolor="#30363d"
-                ),
-                yaxis=dict(
-                    title="Pb (%)",
-                    title_font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                    tickfont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                    gridcolor="#21262d", linecolor="#30363d"
-                ),
-                paper_bgcolor="#161b22",
-                plot_bgcolor="#161b22",
-                margin=dict(t=55, b=50, l=50, r=20),
-                height=320,
-                annotations=[dict(
-                    text=f"▲ N saat ini = {r['N']}",
-                    xref="paper", yref="paper",
-                    x=0.99, y=0.99, showarrow=False,
-                    font=dict(family="IBM Plex Mono", size=10, color="#58a6ff"),
-                    align="right"
-                )]
-            )
-            st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
-
-        # ── Grafik 3: Kurva Pb vs A (Pengaruh Intensitas Trafik) ──
-        st.markdown(
-            '<div class="section-header">Kurva Pb vs Intensitas Trafik (A)</div>',
-            unsafe_allow_html=True
-        )
-        a_range = [round(i * 0.01, 2) for i in range(1, 100)]
-        pb_curve = []
-        for av in a_range:
-            pv = binomial_pb(av, r['S'], r['N'])
-            pb_curve.append((pv * 100) if pv is not None else None)
-
-        fig_line = go.Figure()
-        fig_line.add_trace(go.Scatter(
-            x=a_range,
-            y=pb_curve,
-            mode="lines",
-            name="Pb (%)",
-            line=dict(color="#58a6ff", width=2.5),
-            hovertemplate="A = %{x:.2f}<br>Pb = %{y:.4f}%<extra></extra>",
-            fill="tozeroy",
-            fillcolor="rgba(88,166,255,0.08)"
-        ))
-        # Titik nilai saat ini
-        fig_line.add_trace(go.Scatter(
-            x=[r['A']],
-            y=[pb * 100],
-            mode="markers",
-            name=f"Nilai Saat Ini (A={r['A']})",
-            marker=dict(color="#3fb950", size=10, symbol="circle",
-                        line=dict(color="#0d1117", width=2)),
-            hovertemplate=f"A = {r['A']}<br>Pb = {pb*100:.4f}%<extra></extra>",
-        ))
-        # Garis batas GoS
-        fig_line.add_hline(y=1.0, line_dash="dot", line_color="#ffa600", line_width=1,
-                           annotation_text="Batas GoS 1%", annotation_font_color="#ffa600",
-                           annotation_font_size=10, annotation_position="top right")
-        fig_line.add_hline(y=5.0, line_dash="dot", line_color="#f78166", line_width=1,
-                           annotation_text="Batas GoS 5%", annotation_font_color="#f78166",
-                           annotation_font_size=10, annotation_position="top right")
-
-        fig_line.update_layout(
-            title=dict(
-                text=f"Probabilitas Blokir (Pb) vs Intensitas Trafik per Sumber (A)  |  S={r['S']}, N={r['N']}",
-                font=dict(family="IBM Plex Mono", size=13, color="#e6edf3"),
-                x=0.5
-            ),
-            xaxis=dict(
-                title="Intensitas Trafik per Sumber (A)",
-                title_font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                tickfont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                gridcolor="#21262d", linecolor="#30363d",
-                range=[0, 1]
-            ),
-            yaxis=dict(
-                title="Probabilitas Blokir Pb (%)",
-                title_font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                tickfont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                gridcolor="#21262d", linecolor="#30363d"
-            ),
-            paper_bgcolor="#161b22",
-            plot_bgcolor="#161b22",
-            legend=dict(
-                font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                bgcolor="rgba(22,27,34,0.9)",
-                bordercolor="#30363d", borderwidth=1
-            ),
-            margin=dict(t=60, b=50, l=60, r=30),
-            height=350,
-        )
-        st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
-
-        # ── Grafik 4: Heatmap Pb vs (N, S) ──
-        st.markdown(
-            '<div class="section-header">Peta Panas Pb — Jumlah Server vs Sumber</div>',
-            unsafe_allow_html=True
-        )
-        s_range = list(range(max(2, r['S'] - 5), min(51, r['S'] + 6)))
-        n_range = list(range(1, min(r['S'] + 5, 20)))
-        heat_z = []
-        for sv in s_range:
-            row_data = []
-            for nv in n_range:
-                if nv >= sv:
-                    row_data.append(0.0)
-                else:
-                    pv = binomial_pb(r['A'], sv, nv)
-                    row_data.append((pv * 100) if pv is not None else 0.0)
-            heat_z.append(row_data)
-
-        fig_heat = go.Figure(data=go.Heatmap(
-            z=heat_z,
-            x=[str(nv) for nv in n_range],
-            y=[str(sv) for sv in s_range],
-            colorscale=[[0, "#0d1117"], [0.2, "#1f4068"], [0.5, "#58a6ff"], [0.8, "#ffa600"], [1, "#f78166"]],
-            hovertemplate="N = %{x}<br>S = %{y}<br>Pb = %{z:.4f}%<extra></extra>",
-            colorbar=dict(
-                title="Pb (%)",
-                titlefont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                tickfont=dict(family="IBM Plex Mono", size=10, color="#8b949e"),
-                bgcolor="#161b22",
-                bordercolor="#30363d",
-            )
-        ))
-        # Tandai posisi saat ini
-        fig_heat.add_trace(go.Scatter(
-            x=[str(r['N'])],
-            y=[str(r['S'])],
-            mode="markers",
-            marker=dict(symbol="x", size=14, color="#3fb950",
-                        line=dict(color="#0d1117", width=2)),
-            name="Posisi Saat Ini",
-            hovertemplate=f"N={r['N']}, S={r['S']}<br>Pb={pb*100:.4f}%<extra></extra>"
-        ))
-        fig_heat.update_layout(
-            title=dict(
-                text=f"Peta Panas Pb (%)  |  A={r['A']}",
-                font=dict(family="IBM Plex Mono", size=13, color="#e6edf3"),
-                x=0.5
-            ),
-            xaxis=dict(
-                title="Jumlah Server (N)",
-                title_font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                tickfont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-            ),
-            yaxis=dict(
-                title="Jumlah Sumber (S)",
-                title_font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                tickfont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-            ),
-            paper_bgcolor="#161b22",
-            plot_bgcolor="#161b22",
-            legend=dict(
-                font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                bgcolor="rgba(22,27,34,0.9)",
-                bordercolor="#30363d", borderwidth=1
-            ),
-            margin=dict(t=60, b=50, l=60, r=20),
-            height=360,
-        )
-        st.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
-
-        # ── Analisis Sensitivitas ──
-        st.markdown(
-            '<div class="section-header">Analisis Sensitivitas — Tambah 1 Server</div>',
-            unsafe_allow_html=True
-        )
-        pb_plus1 = binomial_pb(r['A'], r['S'], r['N'] + 1)
+        # ── Analisis sensitivitas ──
+        st.markdown('<div class="sec-label">Analisis Sensitivitas — Tambah 1 Server</div>', unsafe_allow_html=True)
+        pb_plus1 = hitung_pb(r['A'], r['S'], r['N'] + 1)
         if pb_plus1 is not None and r['N'] + 1 < r['S']:
             delta = pb - pb_plus1
-            gos2, badge2 = grade_of_service(pb_plus1)
+            kol2, badge2 = kualitas_layanan(pb_plus1)
             st.markdown(f"""
-            <div class="info-box">
+            <div class="box-info">
             Menambah 1 server (N → <b>{r['N']+1}</b>) akan menurunkan Pb dari
             <b>{pb*100:.4f}%</b> menjadi <b>{pb_plus1*100:.4f}%</b>
-            &nbsp;(Δ = −{delta*100:.4f} pp) &nbsp; <span class="badge {badge2}">{gos2}</span>
+            &nbsp;(Δ = −{delta*100:.4f} pp)&nbsp; <span class="badge {badge2}">{kol2}</span>
             </div>
             """, unsafe_allow_html=True)
 
-        # ── Langkah Formula ──
-        with st.expander("📐 Penjelasan Langkah Formula"):
+            # Grafik Pb vs jumlah server
+            st.markdown('<div class="sec-label">Grafik Pb terhadap Jumlah Server (N)</div>', unsafe_allow_html=True)
+            data_server = []
+            for n_i in range(1, min(r['S'], 30)):
+                pb_i = hitung_pb(r['A'], r['S'], n_i)
+                if pb_i is not None:
+                    data_server.append({"N (Server)": n_i, "Pb (%)": round(pb_i * 100, 6)})
+            if data_server:
+                df_server = pd.DataFrame(data_server).set_index("N (Server)")
+                st.line_chart(df_server, height=220, use_container_width=True)
+                st.markdown(
+                    '<div class="box-info">Grafik menunjukkan hubungan antara jumlah server dan probabilitas pemblokiran '
+                    'dengan nilai A dan S tetap. Semakin banyak server, semakin kecil Pb.</div>',
+                    unsafe_allow_html=True
+                )
+
+        # ── Penjelasan formula ──
+        with st.expander("📐 Penjelasan Rumus Langkah demi Langkah"):
             st.markdown(f"""
-            **Rumus Blokir Binomial:**
+**Rumus Pemblokiran Binomial:**
 
-            ```
-            Pb = Σ(x = N to S-1) [ (S-1)! / (x! · (S-1-x)!) ] · A^x · (1-A)^(S-1-x)
-            ```
+```
+Pb = Σ(x = N sampai S-1)  [ (S-1)! / (x! · (S-1-x)!) ]  ·  A^x  ·  (1-A)^(S-1-x)
+```
 
-            **Dengan nilai Anda** — A = {r['A']}, S = {r['S']}, N = {r['N']}:
+**Dengan nilai Anda** — A = {r['A']}, S = {r['S']}, N = {r['N']}:
 
-            - Penjumlahan dari x = **{r['N']}** hingga x = **{r['S']-1}**
-            - Total suku yang dievaluasi: **{r['S'] - r['N']}**
-            - S-1 = **{r['S']-1}**, (1-A) = **{1-r['A']:.4f}**
+- Penjumlahan berjalan dari x = **{r['N']}** sampai x = **{r['S']-1}**
+- Total suku yang dievaluasi: **{r['S'] - r['N']}**
+- S-1 = **{r['S']-1}**, (1-A) = **{round(1-r['A'], 4)}**
 
-            Setiap suku mewakili probabilitas bahwa tepat *x* dari *S-1* sumber
-            aktif secara bersamaan, dibobot dengan koefisien binomial.
-            Jumlahnya memberikan total probabilitas bahwa semua N server terpakai
-            saat panggilan baru tiba.
-            """)
+Setiap suku merepresentasikan probabilitas bahwa tepat *x* dari *S-1* sumber
+sedang aktif secara bersamaan, dibobot dengan koefisien binomial.
+Jumlah total memberikan probabilitas bahwa semua N server sedang sibuk
+ketika panggilan baru tiba.
+
+| Simbol | Keterangan | Nilai |
+|--------|-----------|-------|
+| A | Erlang yang ditawarkan per sumber | {r['A']} |
+| S | Jumlah sumber | {r['S']} |
+| N | Jumlah server | {r['N']} |
+| Pb | Probabilitas pemblokiran | {pb:.8f} |
+""")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — RIWAYAT
+# HALAMAN 3 — RIWAYAT
 # ═══════════════════════════════════════════════════════════════════════════════
-elif st.session_state.active_tab == "Riwayat":
+elif halaman == "Riwayat":
 
-    st.markdown('<div class="app-title">Riwayat Perhitungan</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Riwayat Perhitungan</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="app-subtitle">Semua komputasi dalam sesi ini</div>',
+        '<div class="page-sub">Semua komputasi dalam sesi ini</div>',
         unsafe_allow_html=True
     )
 
-    if not st.session_state.history:
+    if not st.session_state.riwayat:
         st.markdown(
-            '<div class="info-box">ℹ Belum ada riwayat. Jalankan perhitungan di tab <b>Kalkulator</b>.</div>',
+            '<div class="box-info">ℹ Belum ada riwayat. Jalankan perhitungan di tab <b>Kalkulator</b>.</div>',
             unsafe_allow_html=True
         )
     else:
-        n = len(st.session_state.history)
-        pbs = [r["Pb"] for r in st.session_state.history]
+        n = len(st.session_state.riwayat)
+        semua_pb = [r["Pb"] for r in st.session_state.riwayat]
 
+        # Ringkasan statistik
+        st.markdown('<div class="sec-label">Ringkasan Sesi</div>', unsafe_allow_html=True)
         st.markdown(f"""
-        <div class="metric-row">
-            <div class="metric-tile"><div class="val">{n}</div><div class="lbl">Total Data</div></div>
-            <div class="metric-tile"><div class="val">{min(pbs)*100:.4f}%</div><div class="lbl">Pb Minimum</div></div>
-            <div class="metric-tile"><div class="val">{max(pbs)*100:.4f}%</div><div class="lbl">Pb Maksimum</div></div>
-            <div class="metric-tile"><div class="val">{sum(pbs)/n*100:.4f}%</div><div class="lbl">Rata-rata Pb</div></div>
+        <div class="tile-row">
+            <div class="tile"><div class="tv">{n}</div><div class="tl">Total Catatan</div></div>
+            <div class="tile"><div class="tv">{min(semua_pb)*100:.4f}%</div><div class="tl">Pb Minimum</div></div>
+            <div class="tile"><div class="tv">{max(semua_pb)*100:.4f}%</div><div class="tl">Pb Maksimum</div></div>
+            <div class="tile"><div class="tv">{sum(semua_pb)/n*100:.4f}%</div><div class="tl">Pb Rata-rata</div></div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown('<div class="section-header">Data Tersimpan</div>', unsafe_allow_html=True)
-
-        rows = []
-        for i, rec in enumerate(reversed(st.session_state.history), 1):
-            gos, _ = grade_of_service(rec["Pb"])
-            rows.append({
+        # Tabel catatan
+        st.markdown('<div class="sec-label">Tabel Catatan</div>', unsafe_allow_html=True)
+        baris_tabel = []
+        for i, r in enumerate(reversed(st.session_state.riwayat), 1):
+            kol, _ = kualitas_layanan(r["Pb"])
+            baris_tabel.append({
                 "#": n - i + 1,
-                "Waktu": rec["Timestamp"],
-                "A": rec["A"],
-                "S": rec["S"],
-                "N": rec["N"],
-                "Pb (Desimal)": f"{rec['Pb']:.8f}",
-                "Pb (%)": f"{rec['Pb']*100:.4f}%",
-                "Kelas Layanan": gos,
-                "Catatan": rec.get("Notes", ""),
+                "Waktu": r["Waktu"],
+                "A": r["A"],
+                "S": r["S"],
+                "N": r["N"],
+                "Pb (desimal)": f"{r['Pb']:.8f}",
+                "Pb (%)": f"{r['Pb']*100:.4f}%",
+                "Kualitas": kol,
+                "Catatan": r.get("Catatan", ""),
             })
 
-        df = pd.DataFrame(rows)
+        df = pd.DataFrame(baris_tabel)
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-        # ── Grafik Tren Riwayat ──
-        st.markdown('<div class="section-header">Grafik Tren Probabilitas Blokir</div>', unsafe_allow_html=True)
+        # Grafik tren
+        st.markdown('<div class="sec-label">Tren Probabilitas Pemblokiran</div>', unsafe_allow_html=True)
+        df_tren = pd.DataFrame({
+            "Catatan ke-": list(range(1, n + 1)),
+            "Pb (%)": [r["Pb"] * 100 for r in st.session_state.riwayat],
+        }).set_index("Catatan ke-")
+        st.line_chart(df_tren, height=230, use_container_width=True)
 
-        hist_df = pd.DataFrame({
-            "No": list(range(1, n + 1)),
-            "Pb (%)": [r["Pb"] * 100 for r in st.session_state.history],
-            "A": [r["A"] for r in st.session_state.history],
-            "S": [r["S"] for r in st.session_state.history],
-            "N": [r["N"] for r in st.session_state.history],
-            "Kelas Layanan": [grade_of_service(r["Pb"])[0] for r in st.session_state.history],
-            "Waktu": [r["Timestamp"] for r in st.session_state.history],
-        })
+        # Grafik perbandingan parameter
+        st.markdown('<div class="sec-label">Perbandingan Parameter (A, S, N)</div>', unsafe_allow_html=True)
+        df_param = pd.DataFrame({
+            "Catatan ke-": list(range(1, n + 1)),
+            "A (×100)": [r["A"] * 100 for r in st.session_state.riwayat],
+            "S": [r["S"] for r in st.session_state.riwayat],
+            "N": [r["N"] for r in st.session_state.riwayat],
+        }).set_index("Catatan ke-")
+        st.line_chart(df_param, height=200, use_container_width=True)
 
-        fig_trend = go.Figure()
-        fig_trend.add_trace(go.Scatter(
-            x=hist_df["No"],
-            y=hist_df["Pb (%)"],
-            mode="lines+markers",
-            name="Pb (%)",
-            line=dict(color="#58a6ff", width=2),
-            marker=dict(size=7, color="#58a6ff", line=dict(color="#0d1117", width=1.5)),
-            fill="tozeroy",
-            fillcolor="rgba(88,166,255,0.08)",
-            hovertemplate=(
-                "<b>Data ke-%{x}</b><br>"
-                "Pb = %{y:.4f}%<br>"
-                "<extra></extra>"
-            ),
-        ))
-        fig_trend.add_hline(y=1.0, line_dash="dot", line_color="#ffa600", line_width=1,
-                            annotation_text="GoS 1%", annotation_font_color="#ffa600",
-                            annotation_font_size=10, annotation_position="top right")
-        fig_trend.add_hline(y=5.0, line_dash="dot", line_color="#f78166", line_width=1,
-                            annotation_text="GoS 5%", annotation_font_color="#f78166",
-                            annotation_font_size=10, annotation_position="top right")
-        fig_trend.update_layout(
-            title=dict(
-                text="Tren Pb Sepanjang Sesi",
-                font=dict(family="IBM Plex Mono", size=13, color="#e6edf3"),
-                x=0.5
-            ),
-            xaxis=dict(
-                title="Nomor Data",
-                title_font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                tickfont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                gridcolor="#21262d", linecolor="#30363d",
-                dtick=1
-            ),
-            yaxis=dict(
-                title="Pb (%)",
-                title_font=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                tickfont=dict(family="IBM Plex Mono", size=11, color="#8b949e"),
-                gridcolor="#21262d", linecolor="#30363d"
-            ),
-            paper_bgcolor="#161b22",
-            plot_bgcolor="#161b22",
-            margin=dict(t=55, b=50, l=60, r=30),
-            height=300,
-        )
-        st.plotly_chart(fig_trend, use_container_width=True, config={"displayModeBar": False})
+        # Ekspor
+        st.markdown('<div class="sec-label">Ekspor Data</div>', unsafe_allow_html=True)
+        col_p, col_c, col_h, _ = st.columns([1.2, 1.2, 1, 3])
 
-        # ── Ekspor ──
-        st.markdown('<div class="section-header">Ekspor Data</div>', unsafe_allow_html=True)
-        col_dl1, col_dl2, col_clr, _ = st.columns([1.2, 1.2, 1, 3])
-
-        with col_dl1:
+        with col_p:
             try:
-                from fpdf import FPDF  # noqa: F401
-                pdf_bytes = generate_pdf(st.session_state.history)
+                from fpdf import FPDF  # noqa
+                pdf_bytes = buat_pdf(st.session_state.riwayat)
                 file_ext = "pdf"
                 mime_type = "application/pdf"
-                btn_label = "⬇  Unduh PDF"
+                label_btn = "⬇  Unduh PDF"
             except ImportError:
-                pdf_bytes = generate_pdf(st.session_state.history)
+                pdf_bytes = buat_pdf(st.session_state.riwayat)
                 file_ext = "txt"
                 mime_type = "text/plain"
-                btn_label = "⬇  Unduh TXT"
+                label_btn = "⬇  Unduh TXT"
 
             st.download_button(
-                label=btn_label,
+                label=label_btn,
                 data=pdf_bytes,
                 file_name=f"riwayat_binomial_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{file_ext}",
                 mime=mime_type,
                 use_container_width=True,
             )
 
-        with col_dl2:
-            csv_rows = ["Waktu,A,S,N,Pb,Pb(%),Kelas Layanan,Catatan"]
-            for rec in st.session_state.history:
-                gos, _ = grade_of_service(rec["Pb"])
-                csv_rows.append(
-                    f"{rec['Timestamp']},{rec['A']},{rec['S']},{rec['N']},"
-                    f"{rec['Pb']:.8f},{rec['Pb']*100:.4f}%,{gos},{rec.get('Notes','')}"
+        with col_c:
+            baris_csv = ["Waktu,A,S,N,Pb,Pb(%),Kualitas,Catatan"]
+            for r in st.session_state.riwayat:
+                kol, _ = kualitas_layanan(r["Pb"])
+                baris_csv.append(
+                    f"{r['Waktu']},{r['A']},{r['S']},{r['N']},"
+                    f"{r['Pb']:.8f},{r['Pb']*100:.4f}%,{kol},{r.get('Catatan','')}"
                 )
-            csv_data = "\n".join(csv_rows)
+            csv_data = "\n".join(baris_csv)
             st.download_button(
                 label="⬇  Unduh CSV",
                 data=csv_data.encode("utf-8"),
@@ -1010,8 +901,8 @@ elif st.session_state.active_tab == "Riwayat":
                 use_container_width=True,
             )
 
-        with col_clr:
+        with col_h:
             if st.button("🗑  Hapus Semua", use_container_width=True):
-                st.session_state.history = []
-                st.session_state.last_result = None
+                st.session_state.riwayat = []
+                st.session_state.hasil_terakhir = None
                 st.rerun()
