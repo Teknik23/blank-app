@@ -270,6 +270,24 @@ def grade_of_service(pb: float) -> tuple[str, str]:
 
 
 # ─── PDF Generation (pure Python, no extra deps beyond fpdf2) ──────────────────
+def _safe(text: str) -> str:
+    """Strip / replace characters that are not in latin-1 so FPDF won't crash."""
+    replacements = {
+        "\u2014": "-",   # em dash
+        "\u2013": "-",   # en dash
+        "\u2018": "'",   # left single quote
+        "\u2019": "'",   # right single quote
+        "\u201c": '"',   # left double quote
+        "\u201d": '"',   # right double quote
+        "\u2026": "...", # ellipsis
+        "\u00d7": "x",   # multiplication sign
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    # Final safety: encode to latin-1, drop anything that still fails
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
 def generate_pdf(history: list[dict]) -> bytes:
     try:
         from fpdf import FPDF
@@ -280,10 +298,10 @@ def generate_pdf(history: list[dict]) -> bytes:
         # Title
         pdf.set_font("Helvetica", "B", 16)
         pdf.set_text_color(30, 50, 80)
-        pdf.cell(0, 10, "Binomial Traffic Calculator — History Report", ln=True)
+        pdf.cell(0, 10, _safe("Binomial Traffic Calculator - History Report"), ln=True)
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(120, 120, 120)
-        pdf.cell(0, 6, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
+        pdf.cell(0, 6, _safe(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"), ln=True)
         pdf.ln(4)
 
         # Formula reminder
@@ -292,8 +310,8 @@ def generate_pdf(history: list[dict]) -> bytes:
         pdf.set_font("Helvetica", "I", 8)
         pdf.set_text_color(60, 80, 120)
         pdf.multi_cell(0, 5,
-            "Formula: Pb = SUM(x=N to S-1) [ (S-1)! / (x!(S-1-X)!) ] * A^x * (1-A)^(S-1-X)\n"
-            "Where: A = Erlangs/source, S = Sources, N = Servers, Pb = Blocking probability",
+            _safe("Formula: Pb = SUM(x=N to S-1) [ (S-1)! / (x!(S-1-X)!) ] * A^x * (1-A)^(S-1-X)\n"
+            "Where: A = Erlangs/source, S = Sources, N = Servers, Pb = Blocking probability"),
             border=1, fill=True)
         pdf.ln(6)
 
@@ -304,7 +322,7 @@ def generate_pdf(history: list[dict]) -> bytes:
         pdf.set_fill_color(30, 50, 80)
         pdf.set_text_color(255, 255, 255)
         for i, h in enumerate(headers):
-            pdf.cell(col_w[i], 7, h, border=1, fill=True, align="C")
+            pdf.cell(col_w[i], 7, _safe(h), border=1, fill=True, align="C")
         pdf.ln()
 
         # Rows
@@ -325,20 +343,24 @@ def generate_pdf(history: list[dict]) -> bytes:
                 row.get("Notes", ""),
             ]
             for i, v in enumerate(vals):
-                pdf.cell(col_w[i], 6, v, border=1, fill=fill, align="C" if i != 6 else "L")
+                pdf.cell(col_w[i], 6, _safe(v), border=1, fill=fill, align="C" if i != 6 else "L")
             pdf.ln()
 
         # Footer
         pdf.ln(8)
         pdf.set_font("Helvetica", "I", 8)
         pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 5, "Binomial Traffic Calculator — Teletraffic Engineering Tool", align="C")
+        pdf.cell(0, 5, _safe("Binomial Traffic Calculator - Teletraffic Engineering Tool"), align="C")
 
-        return pdf.output(dest="S").encode("latin-1")
+        # fpdf2 returns bytes directly; older builds return str with dest="S"
+        result = pdf.output()
+        if isinstance(result, (bytes, bytearray)):
+            return bytes(result)
+        return result.encode("latin-1")
 
     except ImportError:
-        # Fallback: CSV-style plain text as bytes if fpdf2 not available
-        lines = ["Binomial Traffic Calculator — History Report",
+        # Fallback plain text if fpdf2 not installed
+        lines = ["Binomial Traffic Calculator - History Report",
                  f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", "",
                  "Timestamp,A,S,N,Pb,Pb(%),GoS,Notes"]
         for r in history:
@@ -639,20 +661,17 @@ elif st.session_state.active_tab == "History":
 
         # PDF Download
         with col_dl1:
-            pdf_bytes = generate_pdf(st.session_state.history)
-            # Determine extension based on content
-            ext = "pdf" if pdf_bytes[:4] == b"%PDF" or b"%" in pdf_bytes[:10] else "txt"
             try:
-                # Try PDF generation
-                from fpdf import FPDF
+                from fpdf import FPDF  # noqa: F401 — just checking availability
                 pdf_bytes = generate_pdf(st.session_state.history)
                 file_ext = "pdf"
                 mime_type = "application/pdf"
-                btn_label = "⬇  Download PDF"
+                btn_label = "Download PDF"
             except ImportError:
-                file_ext = "csv"
+                pdf_bytes = generate_pdf(st.session_state.history)
+                file_ext = "txt"
                 mime_type = "text/plain"
-                btn_label = "⬇  Download CSV"
+                btn_label = "Download TXT"
 
             st.download_button(
                 label=btn_label,
