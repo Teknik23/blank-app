@@ -89,7 +89,7 @@ section[data-testid="stSidebar"] > div { padding-top: 1.5rem !important; }
     margin: 1.6rem 0 0.9rem;
 }
 
-/* ── Kartu hasil ── */
+/* ── Kartu hasil utama ── */
 .result-card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -129,16 +129,14 @@ section[data-testid="stSidebar"] > div { padding-top: 1.5rem !important; }
     font-family: var(--sans);
 }
 
-/* ── Tile metrik ── */
-.tile-row { display: flex; gap: 0.75rem; margin: 0.75rem 0; flex-wrap: wrap; }
+/* ── Tile metrik (dipakai via st.columns + HTML sederhana) ── */
 .tile {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 0.85rem 1.1rem;
-    flex: 1;
-    min-width: 120px;
     transition: border-color 0.2s;
+    height: 100%;
 }
 .tile:hover { border-color: var(--accent); }
 .tile .tv {
@@ -280,9 +278,6 @@ section[data-testid="stSidebar"] > div { padding-top: 1.5rem !important; }
     overflow: hidden;
 }
 
-/* ── Grafik ── */
-.stLineChart canvas, .stAreaChart canvas { border-radius: 8px; }
-
 /* ── Sidebar nav ── */
 .stRadio > label { font-family: var(--sans) !important; color: var(--muted) !important; font-size: 0.85rem !important; }
 .stRadio > div > label { padding: 0.3rem 0 !important; }
@@ -330,17 +325,45 @@ section[data-testid="stSidebar"] > div { padding-top: 1.5rem !important; }
     line-height: 2;
 }
 .sidebar-info b { color: var(--accent); }
+
+/* ── st.metric override ── */
+[data-testid="stMetric"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1.1rem !important;
+}
+[data-testid="stMetric"]:hover { border-color: var(--accent); }
+[data-testid="stMetricLabel"] {
+    font-family: var(--sans) !important;
+    font-size: 0.67rem !important;
+    color: var(--muted) !important;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+[data-testid="stMetricValue"] {
+    font-family: var(--mono) !important;
+    font-size: 1.05rem !important;
+    color: var(--text) !important;
+}
 </style>
 """, unsafe_allow_html=True)
+
+
+# ─── Helper: render tile tunggal via HTML (aman, satu div saja) ───────────────
+def render_tile(value: str, label: str):
+    """Render satu tile metrik sebagai HTML sederhana — aman dari escaping."""
+    st.markdown(
+        f'<div class="tile"><div class="tv">{value}</div>'
+        f'<div class="tl">{label}</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ─── Fungsi Perhitungan Inti ───────────────────────────────────────────────────
 def hitung_pb(A: float, S: int, N: int):
     """
     Pb = Σ(x=N to S-1) [ (S-1)! / (x! * (S-1-x)!) ] * A^x * (1-A)^(S-1-x)
-    A = Erlang yang ditawarkan per sumber
-    S = Jumlah sumber
-    N = Jumlah server (saluran)
     """
     if N >= S:
         return 0.0
@@ -514,10 +537,10 @@ if halaman == "Kalkulator":
     st.markdown("""
     <div class="formula-box">
     <span class="hl">Pb</span>
-    &nbsp;=&nbsp; Σ <sub>x=N</sub><sup>S−1</sup>
-    &nbsp; <span class="hl2">(S−1)!</span> &nbsp;/&nbsp; [x! · (S−1−x)!]
-    &nbsp;·&nbsp; <span class="hl">A</span><sup>x</sup>
-    &nbsp;·&nbsp; (1−<span class="hl">A</span>)<sup>(S−1−x)</sup>
+    &nbsp;=&nbsp; &Sigma; <sub>x=N</sub><sup>S&minus;1</sup>
+    &nbsp; <span class="hl2">(S&minus;1)!</span> &nbsp;/&nbsp; [x! &middot; (S&minus;1&minus;x)!]
+    &nbsp;&middot;&nbsp; <span class="hl">A</span><sup>x</sup>
+    &nbsp;&middot;&nbsp; (1&minus;<span class="hl">A</span>)<sup>(S&minus;1&minus;x)</sup>
     </div>
     """, unsafe_allow_html=True)
 
@@ -546,10 +569,10 @@ if halaman == "Kalkulator":
             help="Jumlah server yang tersedia (trunk/sirkuit)"
         )
 
-    # Validasi
     if N >= S:
         st.markdown(
-            f'<div class="box-warn">⚠ Nilai N harus lebih kecil dari S. Saat ini N={N} ≥ S={S}, sehingga Pb = 0 (tidak ada pemblokiran).</div>',
+            f'<div class="box-warn">&#9888; Nilai N harus lebih kecil dari S. '
+            f'Saat ini N={N} &ge; S={S}, sehingga Pb = 0 (tidak ada pemblokiran).</div>',
             unsafe_allow_html=True
         )
 
@@ -577,7 +600,8 @@ if halaman == "Kalkulator":
 
         if pb is None:
             st.markdown(
-                '<div class="box-err">⚠ Perhitungan gagal — nilai mungkin terlalu besar untuk kalkulasi faktorial. Coba kurangi nilai S.</div>',
+                '<div class="box-err">&#9888; Perhitungan gagal — nilai mungkin terlalu besar '
+                'untuk kalkulasi faktorial. Coba kurangi nilai S.</div>',
                 unsafe_allow_html=True
             )
         else:
@@ -593,34 +617,35 @@ if halaman == "Kalkulator":
             st.session_state.riwayat.append(hasil)
             st.success(f"✓ Berhasil dihitung — total {len(st.session_state.riwayat)} catatan tersimpan")
 
-    # Pratinjau hasil terakhir
+    # ── Pratinjau hasil terakhir ──────────────────────────────────────────────
     if st.session_state.hasil_terakhir:
         r = st.session_state.hasil_terakhir
         kol, badge = kualitas_layanan(r["Pb"])
+
         st.markdown('<div class="sec-label">Hasil Cepat</div>', unsafe_allow_html=True)
-        catatan_html = f"<div class='result-sub'><i>{r['Catatan']}</i></div>" if r['Catatan'] else ""
-        st.markdown(f"""
-        <div class="result-card">
-            <div style="display:flex;gap:2.5rem;align-items:flex-start;flex-wrap:wrap;">
-                <div>
-                    <div class="result-big">{r['Pb']*100:.4f}%</div>
-                    <div class="result-label">Probabilitas Pemblokiran (Pb)</div>
-                    {catatan_html}
-                </div>
-                <div style="flex:1;">
-                    <div class="tile-row">
-                        <div class="tile"><div class="tv">{r['A']}</div><div class="tl">A (Erlang/Sumber)</div></div>
-                        <div class="tile"><div class="tv">{r['S']}</div><div class="tl">S (Sumber)</div></div>
-                        <div class="tile"><div class="tv">{r['N']}</div><div class="tl">N (Server)</div></div>
-                        <div class="tile">
-                            <div class="tv"><span class="badge {badge}">{kol}</span></div>
-                            <div class="tl">Kualitas Layanan</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+
+        # Kartu Pb utama
+        catatan_html = (
+            f"<div class='result-sub'><i>{r['Catatan']}</i></div>"
+            if r['Catatan'] else ""
+        )
+        st.markdown(
+            f'<div class="result-card">'
+            f'<div class="result-big">{r["Pb"]*100:.4f}%</div>'
+            f'<div class="result-label">Probabilitas Pemblokiran (Pb)</div>'
+            f'{catatan_html}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── FIX: tile baris bawah pakai st.columns + st.metric ──────────────
+        # Ini menggantikan blok HTML tile-row yang bermasalah
+        tc1, tc2, tc3, tc4 = st.columns(4)
+        tc1.metric("A (Erlang/Sumber)", r["A"])
+        tc2.metric("S (Sumber)", r["S"])
+        tc3.metric("N (Server)", r["N"])
+        with tc4:
+            st.metric("Kualitas Layanan", kol)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -636,61 +661,56 @@ elif halaman == "Hasil":
 
     if not st.session_state.hasil_terakhir:
         st.markdown(
-            '<div class="box-info">ℹ Belum ada perhitungan. Buka tab <b>Kalkulator</b> dan jalankan perhitungan terlebih dahulu.</div>',
+            '<div class="box-info">&#8505; Belum ada perhitungan. '
+            'Buka tab <b>Kalkulator</b> dan jalankan perhitungan terlebih dahulu.</div>',
             unsafe_allow_html=True
         )
     else:
         r = st.session_state.hasil_terakhir
         pb = r["Pb"]
         kol, badge = kualitas_layanan(pb)
-        trafik_total  = r['A'] * r['S']
+        trafik_total   = r['A'] * r['S']
         beban_diterima = trafik_total * (1 - pb)
         trafik_blokir  = trafik_total * pb
 
         # ── Hasil utama ──
         st.markdown('<div class="sec-label">Hasil Utama</div>', unsafe_allow_html=True)
-        catatan_html = f"<div class='result-sub'><i>Catatan: {r['Catatan']}</i></div>" if r['Catatan'] else ""
-        st.markdown(f"""
-        <div class="result-card">
-            <div style="display:flex;gap:2.5rem;align-items:flex-start;flex-wrap:wrap;">
-                <div>
-                    <div class="result-big">{pb*100:.6f}%</div>
-                    <div class="result-label">Probabilitas Pemblokiran (Pb)</div>
-                    <div style="margin-top:0.6rem;">
-                        <span class="badge {badge}">{kol}</span>
-                        &nbsp;<span style="font-size:0.75rem;color:var(--muted);font-family:var(--mono);">Kualitas Layanan</span>
-                    </div>
-                    <div class="result-sub">Desimal: <code style="color:var(--accent);">{pb:.10f}</code></div>
-                    <div class="result-sub">Waktu: <code style="font-size:0.78rem;color:var(--muted);">{r['Waktu']}</code></div>
-                    {catatan_html}
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        catatan_html = (
+            f"<div class='result-sub'><i>Catatan: {r['Catatan']}</i></div>"
+            if r['Catatan'] else ""
+        )
+        st.markdown(
+            f'<div class="result-card">'
+            f'<div class="result-big">{pb*100:.6f}%</div>'
+            f'<div class="result-label">Probabilitas Pemblokiran (Pb)</div>'
+            f'<div style="margin-top:0.6rem;">'
+            f'<span class="badge {badge}">{kol}</span>'
+            f'&nbsp;<span style="font-size:0.75rem;color:var(--muted);font-family:var(--mono);">Kualitas Layanan</span>'
+            f'</div>'
+            f'<div class="result-sub">Desimal: <code style="color:var(--accent);">{pb:.10f}</code></div>'
+            f'<div class="result-sub">Waktu: <code style="font-size:0.78rem;color:var(--muted);">{r["Waktu"]}</code></div>'
+            f'{catatan_html}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
-        # ── Parameter masukan ──
+        # ── FIX: Parameter masukan — st.columns + st.metric ─────────────────
         st.markdown('<div class="sec-label">Parameter Masukan</div>', unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="tile-row">
-            <div class="tile"><div class="tv">{r['A']}</div><div class="tl">A — Erlang/Sumber</div></div>
-            <div class="tile"><div class="tv">{r['S']}</div><div class="tl">S — Jumlah Sumber</div></div>
-            <div class="tile"><div class="tv">{r['N']}</div><div class="tl">N — Jumlah Server</div></div>
-            <div class="tile"><div class="tv">{r['S'] - r['N']}</div><div class="tl">S − N (Sumber Berlebih)</div></div>
-        </div>
-        """, unsafe_allow_html=True)
+        pc1, pc2, pc3, pc4 = st.columns(4)
+        pc1.metric("A — Erlang/Sumber", r['A'])
+        pc2.metric("S — Jumlah Sumber", r['S'])
+        pc3.metric("N — Jumlah Server", r['N'])
+        pc4.metric("S - N (Sumber Berlebih)", r['S'] - r['N'])
 
-        # ── Metrik trafik turunan ──
+        # ── FIX: Metrik trafik turunan — st.columns + st.metric ─────────────
         st.markdown('<div class="sec-label">Metrik Trafik Turunan</div>', unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="tile-row">
-            <div class="tile"><div class="tv">{trafik_total:.4f}</div><div class="tl">Total Ditawarkan (Erl)</div></div>
-            <div class="tile"><div class="tv">{beban_diterima:.4f}</div><div class="tl">Beban Diterima (Erl)</div></div>
-            <div class="tile"><div class="tv">{trafik_blokir:.4f}</div><div class="tl">Trafik Terblokir (Erl)</div></div>
-            <div class="tile"><div class="tv">{(1-pb)*100:.4f}%</div><div class="tl">Tingkat Keberhasilan</div></div>
-        </div>
-        """, unsafe_allow_html=True)
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("Total Ditawarkan (Erl)", f"{trafik_total:.4f}")
+        mc2.metric("Beban Diterima (Erl)",   f"{beban_diterima:.4f}")
+        mc3.metric("Trafik Terblokir (Erl)", f"{trafik_blokir:.4f}")
+        mc4.metric("Tingkat Keberhasilan",   f"{(1-pb)*100:.4f}%")
 
-        # ── GRAFIK DISTRIBUSI SUKU ──
+        # ── Grafik distribusi suku ──
         st.markdown('<div class="sec-label">Grafik Distribusi Suku Penjumlahan</div>', unsafe_allow_html=True)
         A_v, S_v, N_v = r['A'], r['S'], r['N']
         s1 = S_v - 1
@@ -702,19 +722,17 @@ elif halaman == "Hasil":
                 data_suku.append({
                     "x (Sumber Aktif)": x,
                     "Probabilitas": round(suku, 8),
-                    "Zona": "Pemblokiran (x ≥ N)" if x >= N_v else "Normal (x < N)"
+                    "Zona": "Pemblokiran (x >= N)" if x >= N_v else "Normal (x < N)"
                 })
             except Exception:
                 pass
 
         if data_suku:
             df_suku = pd.DataFrame(data_suku)
-            # Grafik semua suku
             df_plot = df_suku.set_index("x (Sumber Aktif)")[["Probabilitas"]]
             st.area_chart(df_plot, height=220, use_container_width=True)
 
-            # Grafik kontribusi kumulatif zona blokir
-            st.markdown('<div class="sec-label">Kontribusi Zona Pemblokiran (x ≥ N)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sec-label">Kontribusi Zona Pemblokiran (x &ge; N)</div>', unsafe_allow_html=True)
             df_blok = df_suku[df_suku["x (Sumber Aktif)"] >= N_v].copy()
             if not df_blok.empty:
                 df_blok["Kumulatif Pb"] = df_blok["Probabilitas"].cumsum()
@@ -727,7 +745,7 @@ elif halaman == "Hasil":
                 )
             else:
                 st.markdown(
-                    '<div class="box-info">Tidak ada suku dalam zona pemblokiran (N ≥ S).</div>',
+                    '<div class="box-info">Tidak ada suku dalam zona pemblokiran (N &ge; S).</div>',
                     unsafe_allow_html=True
                 )
 
@@ -737,13 +755,15 @@ elif halaman == "Hasil":
         if pb_plus1 is not None and r['N'] + 1 < r['S']:
             delta = pb - pb_plus1
             kol2, badge2 = kualitas_layanan(pb_plus1)
-            st.markdown(f"""
-            <div class="box-info">
-            Menambah 1 server (N → <b>{r['N']+1}</b>) akan menurunkan Pb dari
-            <b>{pb*100:.4f}%</b> menjadi <b>{pb_plus1*100:.4f}%</b>
-            &nbsp;(Δ = −{delta*100:.4f} pp)&nbsp; <span class="badge {badge2}">{kol2}</span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="box-info">'
+                f'Menambah 1 server (N &rarr; <b>{r["N"]+1}</b>) akan menurunkan Pb dari '
+                f'<b>{pb*100:.4f}%</b> menjadi <b>{pb_plus1*100:.4f}%</b>'
+                f'&nbsp;(&Delta; = &minus;{delta*100:.4f} pp)&nbsp; '
+                f'<span class="badge {badge2}">{kol2}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
             # Grafik Pb vs jumlah server
             st.markdown('<div class="sec-label">Grafik Pb terhadap Jumlah Server (N)</div>', unsafe_allow_html=True)
@@ -756,8 +776,8 @@ elif halaman == "Hasil":
                 df_server = pd.DataFrame(data_server).set_index("N (Server)")
                 st.line_chart(df_server, height=220, use_container_width=True)
                 st.markdown(
-                    '<div class="box-info">Grafik menunjukkan hubungan antara jumlah server dan probabilitas pemblokiran '
-                    'dengan nilai A dan S tetap. Semakin banyak server, semakin kecil Pb.</div>',
+                    '<div class="box-info">Grafik menunjukkan hubungan antara jumlah server dan probabilitas '
+                    'pemblokiran dengan nilai A dan S tetap. Semakin banyak server, semakin kecil Pb.</div>',
                     unsafe_allow_html=True
                 )
 
@@ -803,23 +823,21 @@ elif halaman == "Riwayat":
 
     if not st.session_state.riwayat:
         st.markdown(
-            '<div class="box-info">ℹ Belum ada riwayat. Jalankan perhitungan di tab <b>Kalkulator</b>.</div>',
+            '<div class="box-info">&#8505; Belum ada riwayat. '
+            'Jalankan perhitungan di tab <b>Kalkulator</b>.</div>',
             unsafe_allow_html=True
         )
     else:
         n = len(st.session_state.riwayat)
         semua_pb = [r["Pb"] for r in st.session_state.riwayat]
 
-        # Ringkasan statistik
+        # ── FIX: Ringkasan statistik — st.columns + st.metric ───────────────
         st.markdown('<div class="sec-label">Ringkasan Sesi</div>', unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="tile-row">
-            <div class="tile"><div class="tv">{n}</div><div class="tl">Total Catatan</div></div>
-            <div class="tile"><div class="tv">{min(semua_pb)*100:.4f}%</div><div class="tl">Pb Minimum</div></div>
-            <div class="tile"><div class="tv">{max(semua_pb)*100:.4f}%</div><div class="tl">Pb Maksimum</div></div>
-            <div class="tile"><div class="tv">{sum(semua_pb)/n*100:.4f}%</div><div class="tl">Pb Rata-rata</div></div>
-        </div>
-        """, unsafe_allow_html=True)
+        rc1, rc2, rc3, rc4 = st.columns(4)
+        rc1.metric("Total Catatan", n)
+        rc2.metric("Pb Minimum",  f"{min(semua_pb)*100:.4f}%")
+        rc3.metric("Pb Maksimum", f"{max(semua_pb)*100:.4f}%")
+        rc4.metric("Pb Rata-rata", f"{sum(semua_pb)/n*100:.4f}%")
 
         # Tabel catatan
         st.markdown('<div class="sec-label">Tabel Catatan</div>', unsafe_allow_html=True)
@@ -853,7 +871,7 @@ elif halaman == "Riwayat":
         st.markdown('<div class="sec-label">Perbandingan Parameter (A, S, N)</div>', unsafe_allow_html=True)
         df_param = pd.DataFrame({
             "Catatan ke-": list(range(1, n + 1)),
-            "A (×100)": [r["A"] * 100 for r in st.session_state.riwayat],
+            "A (x100)": [r["A"] * 100 for r in st.session_state.riwayat],
             "S": [r["S"] for r in st.session_state.riwayat],
             "N": [r["N"] for r in st.session_state.riwayat],
         }).set_index("Catatan ke-")
